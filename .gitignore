@@ -12,4 +12,4 @@ CATKIN_IGNORE
 # Hidden files
 *.swp
 *.swo
-
+*~

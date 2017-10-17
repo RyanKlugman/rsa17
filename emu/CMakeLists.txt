@@ -45,7 +45,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-   INCLUDE_DIRS include
+   INCLUDE_DIRS
    LIBRARIES
    CATKIN_DEPENDS
       crosbot
@@ -63,24 +63,14 @@ include_directories(include
   ${catkin_INCLUDE_DIRS}
 )
 
-## Combined qual_planning library
-add_library(rsa17_library
-    src/controlWrapper.cpp
-)
-
-## Declare a cpp executable
-add_executable(rsa17_controls
-    src/nodes/control_node.cpp
-)
-
 ## Specify libraries to link a library or executable target against
-target_link_libraries(rsa17_library
-  ${catkin_LIBRARIES}
-)
-target_link_libraries(rsa17_controls
-  ${catkin_LIBRARIES}
-  rsa17_library
-)
+#target_link_libraries(rsa17_library
+#  ${catkin_LIBRARIES}
+#)
+#target_link_libraries(rsa17_controls
+#  ${catkin_LIBRARIES}
+#  rsa17_library
+#)
 
 #############
 ## Install ##

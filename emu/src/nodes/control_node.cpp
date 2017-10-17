@@ -7,7 +7,7 @@
 
 #include <ros/ros.h>
 
-#include <timothyw_emu/controlWrapper.hpp>
+#include <controlWrapper.hpp>
 
 #include <cstdio>
 #include <cstdlib>

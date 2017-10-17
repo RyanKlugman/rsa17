@@ -7,13 +7,13 @@
 
 #include <ros/ros.h>
 
-#include <timothyw_emu/controlWrapper.hpp>
+#include <controlWrapper.hpp>
 
 #include <crosbot/geometry/poses.hpp>
 #include <crosbot_explore/FollowPath.h>
 #include <crosbot_explore/GetPath.h>
 #include <crosbot_explore/SetMode.h>
-#include <timothyw_emu/common.hpp>
+#include <common.hpp>
 
 #include <std_msgs/String.h>
 

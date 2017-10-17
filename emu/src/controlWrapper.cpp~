@@ -7,7 +7,7 @@
 
 #include <ros/ros.h>
 
-#include <timothyw_emu/controlWrapper.hpp>
+#include <controlWrapper.hpp>
 
 #include <crosbot/geometry/poses.hpp>
 #include <crosbot_explore/FollowPath.h>
@@ -46,8 +46,8 @@ void TBControlWrapper::configure() {
     ros::NodeHandle nh("~");
 
     aStarSrvName = nh.param<std::string>("astar_path_topic", "astar_path");
-    exploreModeSrvName = nh.param<std::string>("crobot_explore_mode_topic", "crosbot_explore_mode");
-    explorePathSrvName = nh.param<std::string>("crobot_explore_path_topic", "crosbot_explore_path");
+    exploreModeSrvName = nh.param<std::string>("crosbot_explore_mode_topic", "crosbot_explore_mode");
+    explorePathSrvName = nh.param<std::string>("crosbot_explore_path_topic", "crosbot_explore_path");
     robot_frame = nh.param<std::string>("robotFrame", "base_link");
     world_frame = nh.param<std::string>("worldFrame", "icp_test");
 }

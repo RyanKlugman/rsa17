@@ -1,0 +1,8 @@
+<launch>
+	<node pkg="joy" type="joy_node" name="joystick_driver" >
+		<rosparam>autorepeat_rate: 20</rosparam>
+	</node>
+	
+	<node pkg="rsa17" type="emu_joystick.py" name="emu_joystick" output="screen">
+	</node>
+</launch>

@@ -1,0 +1,49 @@
+<!-- Position tracker + Slam -->
+<launch>
+    <arg name="scan_sub" value="/scan" />
+  
+    <!-- temp use pos tracker in gui -->
+    <node pkg="crosbot_ogmbicp" type="crosbot_ogmbicp" name="crosbot_ogmbicp" ns="postrack" output="screen">
+         <remap from="/postrack/localGrid" to="/crosbot_map/localmap" />
+         <remap from="/postrack/localImage" to="/crosbot_map/localmap/image" />
+         
+         <param name="odom_frame" value="" />
+         <param name="base_frame" value="base_footprint" />
+         <param name="icp_frame" value="icp_test" />
+         <param name="scan_sub" value="$(arg scan_sub)" />
+         
+         <param name="LaserMinDist" value="0.3" />
+         <param name="LaserSkip" value="3" />
+         <param name="LifeRatio" value="2.0" />
+         
+         <!--param name="UseSimpleH" value="true" />         
+         <param name="IgnoreZValues" value="true" /-->
+         <param name="UseOdometry" value="false" />
+    </node>
+    
+    <node pkg="crosbot_graphslam" type="crosbot_graphslam" name="crosbot_graphslam" output="screen">
+         <remap from="/slamGrid" to="/crosbot_map/slammap" />
+         <param name="slam_history_pub" value="/crosbot_map/slammap/history" />
+         
+         <param name="odom_frame" value="" />
+         <param name="base_frame" value="base_footprint" />
+         <param name="icp_frame" value="icp_test" />
+         <param name="slam_frame" value="slam" />
+         <param name="scan_sub" value="$(arg scan_sub)" />
+         <param name="useKinect" value="false" />
+        
+         <param name="LaserMinDist" value="0.3" />
+         
+         <!--param name="useKinect" Xvalue="true" value="false" />
+         <param name="kinect_sub" value="/camera/depth_registered/points_throttle" /-->
+    </node>
+    
+    <!--node pkg="crosbot_map_geotiff" type="crosbot_map_geotiff" name="crosbot_map_geotiff" output="screen">
+        <rosparam>
+            map_topic: /crosbot_map/slammap
+            mapImg_topic: /crosbot_map/slammap/geotiff
+            path_topic: /crosbot_map/slammap/history
+            tiff_filename: /home/rescue/workspace/indigo_workspace/geotiff.tff
+        </rosparam>
+    </node-->
+</launch>

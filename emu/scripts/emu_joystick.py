@@ -128,6 +128,18 @@ class JoystickNode:
 			    self.sayText("Stopping wall following")
 			    send_crosbot_command = True
 			    crosbot_command = "command_stop"
+			elif (data.buttons[BUTTON_A]):
+			    self.sayText("Travelling to origin")
+			    send_crosbot_command = True
+			    crosbot_command = "explore_command_go_to_origin"
+			elif (data.buttons[BUTTON_X]):
+			    self.sayText("Travelling to point")
+			    send_crosbot_command = True
+			    crosbot_command = "explore_command_go_to_point"
+			elif (data.buttons[BUTTON_B]):
+			    self.sayText("Travelling to pose")
+			    send_crosbot_command = True
+			    crosbot_command = "explore_command_go_to_pose"
 		# If no drive commands are being sent - then ensure motors are stopped
 		elif (not self.motors_stopped):
 			self.setVelocities(0.0, 0.0)

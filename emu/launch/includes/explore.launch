@@ -18,7 +18,7 @@
     <!-- Run explorer node -->
     <node name="explorer" pkg="crosbot_explore" type="explorer" xtype="astar_explorer" output="screen">
         <rosparam>
-            debug: true
+            debug: false
             maxVel: 0.25
             map_sub: /crosbot_map/slammap
             history_sub: /crosbot_map/slammap/history

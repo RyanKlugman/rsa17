@@ -9,11 +9,11 @@
 	
 	
     <Generate local map>-->
-    <node name="localmap" pkg="crosbot_map" type="localmap" output="screen">
+    <!--node name="localmap" pkg="crosbot_map" type="localmap" output="screen">
         <remap from="/image" to="/crosbot_map/localmap_image" />
         <remap from="/localmap" to="/crosbot_map/localmap" />
         <param name="map_frame" value="map" />
-    </node>
+    </node-->
 
     <!-- Run explorer node -->
     <node name="explorer" pkg="crosbot_explore" type="explorer" xtype="astar_explorer" output="screen">

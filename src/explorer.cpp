@@ -811,12 +811,12 @@ Pose Explorer::findWaypointTarget(const VoronoiGrid& voronoi, const Pose& robot)
 
         // Head directly towards waypoint, if far enough to searchParams.waypoint
         if (d >= minAcceptableDistance) {
-            //ROS_INFO("%s \t findWaypointTarget(): Heading directly towards waypoint, heading: %.2lf, dist: %.2lf", LOG_START, waypointHeading, waypointDistance);
+            ROS_INFO("%s findWaypointTarget(): Heading directly towards waypoint, heading: %.2lf, dist: %.2lf", LOG_START, waypointHeading, waypointDistance);
             searchParams.pathBlocked = false;
             Point target = robot.position + Point(d*cos(waypointHeading), d*sin(waypointHeading), 0);
             driveToTarget = Pose(target, Quaternion());
         } else {
-            ROS_INFO("%s \t findWaypointTarget(): Finding path in direction of waypoint", LOG_START);
+            ROS_INFO("%s findWaypointTarget(): Finding path in direction of waypoint", LOG_START);
             // Otherwise search for a path in the direction of the waypoint, at increasing radius of angles
             bool haveTarget = false;
             double a = searchParams.angleStep;

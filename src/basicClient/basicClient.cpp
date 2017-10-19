@@ -136,10 +136,10 @@ void BasicExplorerClient::callback_explorerFeedback(const rsa17::ExplorerFeedbac
         searchStrategy = "left wall";
     } else if (feedback->searchStrategy == rsa17::ExploreMode::MODE_RIGHT_WALL) {
         searchStrategy = "right wall";
-    } else if (feedback->searchStrategy == rsa17::ExploreMode::MODE_WAYPOINT) {
-        searchStrategy = "waypoint";
     } else if (feedback->searchStrategy == rsa17::MoveMode::MODE_ASTAR) {
         searchStrategy = "astar";
+    } else if (feedback->searchStrategy == rsa17::ExploreMode::MODE_WAYPOINT) {
+        searchStrategy = "waypoint";
     }
 
     rsa17::ExplorerStatus::Status status = rsa17::ExplorerStatus::statusFromInt(feedback->status);

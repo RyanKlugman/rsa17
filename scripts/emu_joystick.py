@@ -2,10 +2,11 @@
 import rospy
 from std_msgs.msg import String
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Pose
 from sensor_msgs.msg import JointState
 from crosbot_msgs.msg import ControlCommand
 import os
+import tf
 
 from time import sleep
 from espeak import espeak
@@ -25,6 +26,10 @@ BUTTON_RIGHT_STICK = 11
 
 AXES_DPAD_LR = 0
 AXES_DPAD_TB = 1
+AXES_RIGHT_STICK_LR = 2
+AXES_RIGHT_STICK_TB = 3
+AXES_LEFT_STICK_LR = 4
+AXES_LEFT_STICK_TB = 5
 
 class JoystickNode:
 	def __init__(self):
@@ -37,8 +42,10 @@ class JoystickNode:
 		self.twistPub = rospy.Publisher("/base/cmd_vel", Twist, queue_size=1)
 		self.armPub = rospy.Publisher("/joint_control", JointState, queue_size=1)
 		self.crosbotCommandPub = rospy.Publisher("/crosbot/commands", ControlCommand, queue_size=1)
+		self.navGoalPub = rospy.Publisher("/move_base_simple/goal", Pose, queue_size=1)
 		rospy.Subscriber("joy", Joy, self.callback)
 		rospy.Subscriber("joint_states", JointState, self.callbackJoints)
+		self.telemListener = tf.TransformListener()
 
 		# Joint controls
 		self.have_joint_states = False
@@ -55,12 +62,22 @@ class JoystickNode:
 		
 
 	def setVelocities(self, forward, turn):
+		goal = Pose()
+        goal.header.stamp = rospy.get_rostime();
+        goal.header.frame_id = "base_link"
+        goal.position.x = turn * 5
+        goal.position.y = forward * 5 
+        goal.position.z = 0
+		self.twistPub.publish(self.telemListener.transformPoint("icp_test", goal))
+
+	def setNavGoal(self, forward, right):
 		cmd = Twist()
 		cmd.linear.x = forward * self.max_speed;
 		cmd.linear.y = cmd.linear.z = 0;
 		cmd.angular.z = turn * self.max_turn;
 		cmd.angular.y = cmd.angular.x = 0;
-		self.twistPub.publish(cmd)
+		self.navGoalPub.publish(cmd)
+	
 	
 	def callbackJoints(self, joint_data):
 		for i in range(len(joint_data.name)):
@@ -110,7 +127,10 @@ class JoystickNode:
 		crosbot_command = ""
 		if (data.buttons[BUTTON_RT] == 1 and data.buttons[BUTTON_LT] == 0):
 			self.motors_stopped = False
-			self.setVelocities((data.axes[1] + data.axes[3]) / 2, (data.axes[0] + data.axes[2]) / 2)
+			self.setVelocities((data.axes[AXES_DPAD_TB] + data.axes[AXES_RIGHT_STICK_TB]) / 2, (data.axes[AXES_DPAD_LR] + data.axes[AXES_RIGHT_STICK_LR]) / 2)
+			
+			if (data.axes[AXES_LEFT_STICK_TB] != 0 or data.axes[AXES_LEFT_STICK_LR] != 0):
+			    self.setNavGoal(data.axes[AXES_LEFT_STICK_TB], data.axes[AXES_LEFT_STICK_LR])
 			
 			if (data.buttons[BUTTON_RB]):
 			    send_crosbot_command = True

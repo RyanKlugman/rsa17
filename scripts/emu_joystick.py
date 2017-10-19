@@ -133,11 +133,11 @@ class JoystickNode:
 			    send_crosbot_command = True
 			    crosbot_command = "explore_command_go_to_origin"
 			elif (data.buttons[BUTTON_X]):
-			    self.sayText("Stopping wall following")
+			    self.sayText("Travelling to point")
 			    send_crosbot_command = True
 			    crosbot_command = "explore_command_go_to_point"
 			elif (data.buttons[BUTTON_B]):
-			    self.sayText("Stopping wall following")
+			    self.sayText("Travelling to pose")
 			    send_crosbot_command = True
 			    crosbot_command = "explore_command_go_to_pose"
 		# If no drive commands are being sent - then ensure motors are stopped
@@ -168,6 +168,7 @@ class JoystickNode:
 
 		# Zero joints
 		if (data.buttons[BUTTON_LT] == 1 and data.buttons[BUTTON_RT] == 0 and data.buttons[BUTTON_BACK] == 0):
+		    # Neck straight up
 			if (data.axes[5] == 1):
 				joints = ["neck_tilt", "neck_pan", "arm_base", "arm_shoulder", "arm_elbow"]
 				positions = [ 0.0, 0.0, 0.0, 0.0, 0.0 ]
@@ -178,7 +179,8 @@ class JoystickNode:
 				joints = ["neck_tilt", "neck_pan", "arm_base"]
 				positions = [ arm_shoulder_pos, 0.0, 0.0 ]
 				self.neck_tilt_offset = 0
-			elif (data.axes[4] == -1):
+			# Neck at right angle
+			elif (data.axes[4] == 1 or data.axes[4] == -1):
 				joints[:] = []
 				positions[:] = []
 				joints = ["neck_tilt", "neck_pan", "arm_base", "arm_shoulder", "arm_elbow"]
@@ -186,7 +188,8 @@ class JoystickNode:
 				self.neck_tilt_offset = 0
 				self.shoulder_offset = 0
 				self.ideal_arm_angle = -0.785
-			elif (data.axes[4] == 1):
+			# Neck collapsed 
+			elif (data.axes[5] == -1):
 				joints[:] = []
 				positions[:] = []
 				joints = ["neck_tilt", "neck_pan", "arm_base", "arm_shoulder", "arm_elbow"]
@@ -194,12 +197,14 @@ class JoystickNode:
 				self.neck_tilt_offset = 0
 				self.shoulder_offset = 0
 				self.ideal_arm_angle = -1.25
+			# Head level
 			elif (data.buttons[BUTTON_LB] == 1):
 				joints[:] = []
 				positions[:] = []
 				joints = ["neck_tilt", "neck_pan"]
 				positions = [ arm_shoulder_pos, 0.0 ]
 				self.neck_tilt_offset = 0
+			# Shoulder rotated forward
 			elif (data.buttons[BUTTON_RB] == 1):
 				joints[:] = []
 				positions[:] = []

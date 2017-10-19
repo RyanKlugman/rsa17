@@ -1,0 +1,6 @@
+<launch>
+
+    <node pkg="rsa17" type="basic_client" name="basic_client" output="screen">
+    </node>
+
+</launch>

@@ -16,9 +16,9 @@
     </node-->
 
     <!-- Run explorer node -->
-    <node name="explorer" pkg="crosbot_explore" type="explorer" xtype="astar_explorer" output="screen">
+    <node name="explorer" pkg="rsa17" type="astar_explorer" output="screen">
         <rosparam>
-            debug: true
+            debug: false
             maxVel: 0.25
             map_sub: /crosbot_map/slammap
             history_sub: /crosbot_map/slammap/history
@@ -59,12 +59,12 @@
         </rosparam>
     </node>
   
-	<node pkg="crosbot_explore" type="explorer" name="explorer" output="screen">
+	<node pkg="rsa17" type="explorer" name="explorer" output="screen">
 		<remap from="map" to="/localmap" />
-		<remap from="image" to="/crosbot_explore/image" />
+		<remap from="image" to="/rsa17/image" />
 		<remap from="/cmd_vel" to="/base/cmd_vel" />
-        <remap from="/explore/set_mode" to="/crosbot_explore/set_mode" />
-        <remap from="/explore/follow_path" to="/crosbot_explore/follow_path" />
+        <remap from="/explore/set_mode" to="/rsa17/set_mode" />
+        <remap from="/explore/follow_path" to="/rsa17/follow_path" />
         <rosparam>
             maxVel: 0.15
             maxTurn: 0.5

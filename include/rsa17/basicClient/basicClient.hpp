@@ -32,7 +32,7 @@ public:
     void shutdown();
 
     // Command callbacks
-    void callback_navGoal(const geometry_msgs::PoseStampedConstPtr& targetPose);
+    void callback_targetPath(const nav_msgs::PathPtr& targetPose);
     void callback_receivedCommand(const crosbot_msgs::ControlCommandPtr command);
     void callback_explorerFeedback(const rsa17::ExplorerFeedbackConstPtr& feedback);
 
@@ -40,12 +40,13 @@ private:
     // Configuration
     std::string explorer_srv_name;
     std::string explorer_feedback_sub_name;
-    std::string navGoalSub_name;
+    std::string targetPathSub_name;
     std::string robot_frame;
     std::string postrackResetPub_name;
     std::string slamResetPub_name;
     std::string world_frame;
-    geometry_msgs::PoseStamped markerPose;
+    nav_msgs::Path markerPath;
+    int goalIndex;
 
     // Publishers/subscribers/services
     crosbot::CrosbotCommandPtr crosbotCommand;
@@ -54,7 +55,7 @@ private:
     ros::Subscriber explorer_feedback_sub;
     ros::Publisher pubPostrackReset;
     ros::Publisher pubGraphSlamReset;
-    ros::Subscriber subNavGoal;
+    ros::Subscriber subTargetPath;
     tf::TransformListener tfListener;
 
     /**

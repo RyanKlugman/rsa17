@@ -14,6 +14,7 @@
 #include <rsa17/nodes/astarExplorerNode.hpp>
 
 #include <std_msgs/String.h>
+#include <string>
 
 #define CONTROL_COMMAND_RESET_MAP       "reset_map"
 #define DEFAULT_SERVER_WAIT             0.5
@@ -59,11 +60,12 @@ void BasicExplorerClient::configure() {
 
     explorer_srv_name = nh.param<std::string>("explore_srv", "/rsa17/explorer_service");
     explorer_feedback_sub_name = nh.param<std::string>("explorer_feedback_sub", "/rsa17/explorer_feedback");
-    navGoalSub_name = nh.param<std::string>("navGoal_sub", "/move_base_simple/goal");
+    targetPathSub_name = nh.param<std::string>("targetPath_sub", "/targetPath");
     robot_frame = nh.param<std::string>("robotFrame", "base_link");
     postrackResetPub_name = nh.param<std::string>("postrackReset_pub", "/postrack/resetMap");
     slamResetPub_name = nh.param<std::string>("slamReset_pub", "/graphslam/resetMap");
     world_frame = nh.param<std::string>("worldFrame", "icp_test");
+    goalIndex = 0;
 }
 
 void BasicExplorerClient::startup() {
@@ -77,7 +79,7 @@ void BasicExplorerClient::startup() {
     explorer_feedback_sub = nh.subscribe(explorer_feedback_sub_name, 1, &BasicExplorerClient::callback_explorerFeedback, this);
     pubPostrackReset = nh.advertise<std_msgs::String>(postrackResetPub_name, 1);
     pubGraphSlamReset = nh.advertise<std_msgs::String>(slamResetPub_name, 1);
-    subNavGoal = nh.subscribe(navGoalSub_name, 1, &BasicExplorerClient::callback_navGoal, this);
+    subTargetPath = nh.subscribe(targetPathSub_name, 1, &BasicExplorerClient::callback_targetPath, this);
 }
 
 void BasicExplorerClient::shutdown() {
@@ -86,9 +88,14 @@ void BasicExplorerClient::shutdown() {
     explorer_feedback_sub.shutdown();
 }
 
-void BasicExplorerClient::callback_navGoal(const geometry_msgs::PoseStampedConstPtr& targetPose) {
-    markerPose = *targetPose;
-    STATUS_INFO(crosbotStatus, "%s Received new marker: %s", LOG_START, crosbot::Pose3D(markerPose).position.toString().c_str());
+void BasicExplorerClient::callback_targetPath(const nav_msgs::PathPtr& targetPath) {
+    markerPath = *targetPath;
+    std::string printMsg = LOG_START;
+    printMsg = printMsg + " Received new path to follow: \n";
+    for (int i = 0; i < markerPath.poses.size(); i++) {
+    	printMsg = printMsg + "\t(" + std::to_string(markerPath.poses[i].pose.position.x) + ", " + std::to_string(markerPath.poses[i].pose.position.y) + ")\n";
+    }
+    STATUS_INFO(crosbotStatus, "%s", printMsg.c_str());
 }
 
 void BasicExplorerClient::callback_receivedCommand(const crosbot_msgs::ControlCommandPtr command) {
@@ -109,24 +116,16 @@ void BasicExplorerClient::callback_receivedCommand(const crosbot_msgs::ControlCo
     } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_ORIGIN) {
         STATUS_INFO(crosbotStatus, "%s Travelling to origin", LOG_START);
         setAStarPose(crosbot::Pose3D(), false);
-    } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_POINT) {
-        STATUS_INFO(crosbotStatus, "%s Travelling to point: %s", LOG_START, crosbot::Pose3D(markerPose).position.toString().c_str());
-        setAStarPose(markerPose, true);
-        /*crosbot::Pose3D toPose = getCommandPoint(command);
-        if (toPose.isFinite()) {
-            setAStarPose(toPose, false);
-        } else {
-            STATUS_ERROR(crosbotStatus, "%s Go to Point failed - invalid point specified", LOG_START);
-        }*/
-    } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_POSE) {
-        STATUS_INFO(crosbotStatus, "%s Travelling to pose: %s", LOG_START, crosbot::Pose3D(markerPose).position.toString().c_str());
-        setAStarPose(markerPose, true);
-        /*crosbot::Pose3D toPose = getCommandPose(command);
-        if (toPose.isFinite()) {
-            setAStarPose(toPose, true);
-        } else {
-            STATUS_ERROR(crosbotStatus, "%s Go to Pose failed - invalid point specified", LOG_START);
-        }*/
+    } else if (command->command == CROSBOT_EXPLORE_COMMAND_FOLLOW_PATH) {
+    	if (goalIndex < markerPath.poses.size() && markerPath.poses.size() > 0) {
+    		STATUS_INFO(crosbotStatus, "%s Travelling to goal #%d (%f, %f)", LOG_START, goalIndex, markerPath.poses[goalIndex].pose.position.x, markerPath.poses[goalIndex].pose.position.y);
+    		setAStarPose(markerPath.poses[goalIndex], false);
+    	} else {
+    		STATUS_INFO(crosbotStatus, "%s Already at destination", LOG_START);
+    	}
+    } else if (command->command == CROSBOT_EXPLORE_COMMAND_CLEAR_PATH) {
+        STATUS_INFO(crosbotStatus, "%s Clearing path", LOG_START);
+        goalIndex = 0;
     }
 }
 
@@ -143,7 +142,16 @@ void BasicExplorerClient::callback_explorerFeedback(const rsa17::ExplorerFeedbac
     }
 
     rsa17::ExplorerStatus::Status status = rsa17::ExplorerStatus::statusFromInt(feedback->status);
-    STATUS_INFO(crosbotStatus, "Explorer feedback: %s (%s)", ExplorerStatus::statusToString(status).c_str(), searchStrategy.c_str());
+    STATUS_INFO(crosbotStatus, "%s Explorer feedback: %s (%s)", LOG_START, ExplorerStatus::statusToString(status).c_str(), searchStrategy.c_str());
+    if (status == rsa17::ExplorerStatus::Status::STATUS_ARRIVED) {
+    	goalIndex++;
+    	if (goalIndex < markerPath.poses.size() && markerPath.poses.size() > 0) {
+    		STATUS_INFO(crosbotStatus, "%s Travelling to next goal #%d (%f, %f)", LOG_START, goalIndex, markerPath.poses[goalIndex].pose.position.x, markerPath.poses[goalIndex].pose.position.y);
+    		setAStarPose(markerPath.poses[goalIndex], false);
+    	} else {
+    		STATUS_INFO(crosbotStatus, "%s Reached final goal", LOG_START);
+    	}
+    }
 }
 
 crosbot::Pose3D BasicExplorerClient::getCommandPoint(const crosbot_msgs::ControlCommandPtr command) {

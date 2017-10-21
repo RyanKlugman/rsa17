@@ -500,7 +500,7 @@ bool ExplorerROSNode::setWaypoints(nav_msgs::Path& navPath) {
         waypoints.resize(navPath.poses.size());
         for (size_t i = 0; i < waypoints.size(); ++i) {
             waypoints[i] = transform * Pose(navPath.poses[i]).toTF();
-            ROS_INFO("%s Adding waypoint %s", LOG_START, waypoints[i].position.toString().c_str());
+            //ROS_INFO("%s Adding waypoint %s", LOG_START, waypoints[i].position.toString().c_str());
         }
     }
 

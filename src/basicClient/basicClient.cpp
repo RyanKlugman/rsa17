@@ -15,6 +15,7 @@
 
 #include <std_msgs/String.h>
 #include <string>
+#include <iostream>
 
 #define CONTROL_COMMAND_RESET_MAP       "reset_map"
 #define DEFAULT_SERVER_WAIT             0.5
@@ -60,7 +61,7 @@ void BasicExplorerClient::configure() {
 
     explorer_srv_name = nh.param<std::string>("explore_srv", "/rsa17/explorer_service");
     explorer_feedback_sub_name = nh.param<std::string>("explorer_feedback_sub", "/rsa17/explorer_feedback");
-    targetPathSub_name = nh.param<std::string>("targetPath_sub", "/targetPath");
+    targetPoseArraySub_name = nh.param<std::string>("targetPoseArray_sub", "/targetPoseArray");
     robot_frame = nh.param<std::string>("robotFrame", "base_link");
     postrackResetPub_name = nh.param<std::string>("postrackReset_pub", "/postrack/resetMap");
     slamResetPub_name = nh.param<std::string>("slamReset_pub", "/graphslam/resetMap");
@@ -79,7 +80,7 @@ void BasicExplorerClient::startup() {
     explorer_feedback_sub = nh.subscribe(explorer_feedback_sub_name, 1, &BasicExplorerClient::callback_explorerFeedback, this);
     pubPostrackReset = nh.advertise<std_msgs::String>(postrackResetPub_name, 1);
     pubGraphSlamReset = nh.advertise<std_msgs::String>(slamResetPub_name, 1);
-    subTargetPath = nh.subscribe(targetPathSub_name, 1, &BasicExplorerClient::callback_targetPath, this);
+    subTargetPoseArray = nh.subscribe(targetPoseArraySub_name, 1, &BasicExplorerClient::callback_targetPoseArray, this);
 }
 
 void BasicExplorerClient::shutdown() {
@@ -88,12 +89,12 @@ void BasicExplorerClient::shutdown() {
     explorer_feedback_sub.shutdown();
 }
 
-void BasicExplorerClient::callback_targetPath(const nav_msgs::PathPtr& targetPath) {
-    markerPath = *targetPath;
+void BasicExplorerClient::callback_targetPoseArray(const geometry_msgs::PoseArrayPtr& targetPoseArray) {
+    markerPoseArray = *targetPoseArray;
     std::string printMsg = LOG_START;
-    printMsg = printMsg + " Received new path to follow: \n";
-    for (int i = 0; i < markerPath.poses.size(); i++) {
-    	printMsg = printMsg + "\t(" + std::to_string(markerPath.poses[i].pose.position.x) + ", " + std::to_string(markerPath.poses[i].pose.position.y) + ")\n";
+    printMsg = printMsg + " Received new PoseArray to follow: \n";
+    for (int i = 0; i < markerPoseArray.poses.size(); i++) {
+    	printMsg = printMsg + "\t(" + std::to_string(markerPoseArray.poses[i].position.x) + ", " + std::to_string(markerPoseArray.poses[i].position.y) + ")\n";
     }
     STATUS_INFO(crosbotStatus, "%s", printMsg.c_str());
 }
@@ -115,38 +116,22 @@ void BasicExplorerClient::callback_receivedCommand(const crosbot_msgs::ControlCo
         setExploreMode(rsa17::ExploreMode::MODE_RIGHT_WALL);
     } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_ORIGIN) {
         STATUS_INFO(crosbotStatus, "%s Travelling to origin", LOG_START);
+        goalIndex = 100;
         setAStarPose(crosbot::Pose3D(), false);
-<<<<<<< HEAD
-    } else if (command->command == CROSBOT_EXPLORE_COMMAND_FOLLOW_PATH) {
-    	if (goalIndex < markerPath.poses.size() && markerPath.poses.size() > 0) {
-    		STATUS_INFO(crosbotStatus, "%s Travelling to goal #%d (%f, %f)", LOG_START, goalIndex, markerPath.poses[goalIndex].pose.position.x, markerPath.poses[goalIndex].pose.position.y);
-    		setAStarPose(markerPath.poses[goalIndex], false);
+    } else if (command->command == CROSBOT_EXPLORE_COMMAND_FOLLOW_POSE_ARRAY) {
+    	if (goalIndex < markerPoseArray.poses.size() && markerPoseArray.poses.size() > 0) {
+    		STATUS_INFO(crosbotStatus, "%s Travelling to goal #%d (%f, %f)", LOG_START, goalIndex, markerPoseArray.poses[goalIndex].position.x, markerPoseArray.poses[goalIndex].position.y);
+    		geometry_msgs::PoseStamped ps = geometry_msgs::PoseStamped();
+    		ps.header.stamp = ros::Time::now();
+    		ps.header.frame_id = "/slam";
+    		ps.pose = markerPoseArray.poses[goalIndex];
+    		setAStarPose(ps, false);
     	} else {
     		STATUS_INFO(crosbotStatus, "%s Already at destination", LOG_START);
     	}
-    } else if (command->command == CROSBOT_EXPLORE_COMMAND_CLEAR_PATH) {
-        STATUS_INFO(crosbotStatus, "%s Clearing path", LOG_START);
+    } else if (command->command == CROSBOT_EXPLORE_COMMAND_CLEAR_POSE_ARRAY) {
+        STATUS_INFO(crosbotStatus, "%s Clearing PoseArray", LOG_START);
         goalIndex = 0;
-=======
-    } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_POINT) {
-        STATUS_INFO(crosbotStatus, "%s Travelling to point: %s", LOG_START, crosbot::Pose3D(markerPose).position.toString().c_str());
-        setAStarPose(markerPose, false);
-        /*crosbot::Pose3D toPose = getCommandPoint(command);
-        if (toPose.isFinite()) {
-            setAStarPose(toPose, false);
-        } else {
-            STATUS_ERROR(crosbotStatus, "%s Go to Point failed - invalid point specified", LOG_START);
-        }*/
-    } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_POSE) {
-        STATUS_INFO(crosbotStatus, "%s Travelling to pose: %s", LOG_START, crosbot::Pose3D(markerPose).position.toString().c_str());
-        setAStarPose(markerPose, false);
-        /*crosbot::Pose3D toPose = getCommandPose(command);
-        if (toPose.isFinite()) {
-            setAStarPose(toPose, true);
-        } else {
-            STATUS_ERROR(crosbotStatus, "%s Go to Pose failed - invalid point specified", LOG_START);
-        }*/
->>>>>>> aa0d24a916f136d94c253670f099ed0ebc225c05
     }
 }
 
@@ -165,12 +150,23 @@ void BasicExplorerClient::callback_explorerFeedback(const rsa17::ExplorerFeedbac
     rsa17::ExplorerStatus::Status status = rsa17::ExplorerStatus::statusFromInt(feedback->status);
     STATUS_INFO(crosbotStatus, "%s Explorer feedback: %s (%s)", LOG_START, ExplorerStatus::statusToString(status).c_str(), searchStrategy.c_str());
     if (status == rsa17::ExplorerStatus::Status::STATUS_ARRIVED) {
+	 	system("BASH_POST_RC='rossetuplvl3; roslaunch rsa17 explore.launch; exit' gnome-terminal");
+	  	sleep(1);
+		while (!explorer_srv.exists()) {
+	   		sleep(1);
+		}   
     	goalIndex++;
-    	if (goalIndex < markerPath.poses.size() && markerPath.poses.size() > 0) {
-    		STATUS_INFO(crosbotStatus, "%s Travelling to next goal #%d (%f, %f)", LOG_START, goalIndex, markerPath.poses[goalIndex].pose.position.x, markerPath.poses[goalIndex].pose.position.y);
-    		setAStarPose(markerPath.poses[goalIndex], false);
+    	if (goalIndex < markerPoseArray.poses.size() && markerPoseArray.poses.size() > 0) {
+    		STATUS_INFO(crosbotStatus, "%s Travelling to next goal #%d (%f, %f)", LOG_START, goalIndex, markerPoseArray.poses[goalIndex].position.x, markerPoseArray.poses[goalIndex].position.y);
+    		geometry_msgs::PoseStamped ps = geometry_msgs::PoseStamped();
+    		ps.header.stamp = ros::Time::now();
+    		ps.header.frame_id = "/slam";
+    		ps.pose = markerPoseArray.poses[goalIndex];
+    		setAStarPose(ps, false);
+    		setExploreMode(rsa17::ExploreMode::MODE_RESUME);
     	} else {
     		STATUS_INFO(crosbotStatus, "%s Reached final goal", LOG_START);
+    		goalIndex = 0;
     	}
     }
 }
@@ -202,18 +198,17 @@ crosbot::Pose3D BasicExplorerClient::getCommandPose(const crosbot_msgs::ControlC
 
 void BasicExplorerClient::setExploreMode(int mode) {
     // Ensure action server has started
-    bool hasServer = explorer_srv.waitForExistence(ros::Duration(DEFAULT_SERVER_WAIT));
-    if (hasServer) {
-        STATUS_INFO(crosbotStatus, "%s sending explore mode: %d", LOG_START, mode);
-
-        rsa17::SetExplorerModeRequest  request;
-        rsa17::SetExplorerModeResponse response;
-        request.id = 0;
-        request.mode = mode;
-        explorer_srv.call(request, response);
-    } else {
-        STATUS_ERROR(crosbotStatus, "%s Explorer Action Server not available", LOG_START);
+    while (!explorer_srv.exists()) {
+    	system("BASH_POST_RC='rossetuplvl3; roslaunch rsa17 explore.launch; exit' gnome-terminal");
+    	sleep(1);
     }
+    STATUS_INFO(crosbotStatus, "%s sending explore mode: %d", LOG_START, mode);
+
+    rsa17::SetExplorerModeRequest  request;
+    rsa17::SetExplorerModeResponse response;
+    request.id = 0;
+    request.mode = mode;
+    explorer_srv.call(request, response);
 }
 
 // TODO: use pose
@@ -237,30 +232,29 @@ void BasicExplorerClient::setAStarPose(crosbot::Pose3D targetPose, bool targetOr
 }
 
 void BasicExplorerClient::setAStarPose(const geometry_msgs::PoseStamped& targetPose, bool targetOrientation) {
-    // Send new action
-    bool hasServer = explorer_srv.waitForExistence(ros::Duration(DEFAULT_SERVER_WAIT));
-    if (hasServer) {
-        int mode = rsa17::MoveMode::MODE_ASTAR;
-        STATUS_INFO(crosbotStatus, "%s A* to geom pose: %s", LOG_START, crosbot::Pose3D(targetPose).position.toString().c_str());
-
-        // Set goal
-        rsa17::SetExplorerModeRequest  request;
-        rsa17::SetExplorerModeResponse response;
-        request.id = 0;
-        request.mode = mode;
-        request.targetOrientation = targetOrientation;
-
-        // Path
-        request.path.header.frame_id = targetPose.header.frame_id;
-        request.path.header.stamp = targetPose.header.stamp;
-        request.path.poses.push_back(crosbot::Pose3D());
-        request.path.poses.push_back(targetPose);
-
-        // Send action
-        explorer_srv.call(request, response);
-    } else {
-        STATUS_ERROR(crosbotStatus, "%s Explorer Action Server not available", LOG_START);
+    // Ensure action server has started
+    while (!explorer_srv.exists()) {
+    	system("BASH_POST_RC='rossetuplvl3; roslaunch rsa17 explore.launch; exit' gnome-terminal");
+    	sleep(1);
     }
+    // Send new action
+    int mode = rsa17::MoveMode::MODE_ASTAR;
+    STATUS_INFO(crosbotStatus, "%s A* to geom pose: %s", LOG_START, crosbot::Pose3D(targetPose).position.toString().c_str());
+
+    // Set goal
+    rsa17::SetExplorerModeRequest  request;
+    rsa17::SetExplorerModeResponse response;
+    request.id = 0;
+    request.mode = mode;
+    request.targetOrientation = targetOrientation;
+
+    // Path
+    request.path.header.frame_id = targetPose.header.frame_id;
+    request.path.header.stamp = targetPose.header.stamp;
+    request.path.poses.push_back(targetPose);
+
+    // Send action
+    explorer_srv.call(request, response);
 }
 
 void BasicExplorerClient::command_reset(const crosbot_msgs::ControlCommandPtr command) {

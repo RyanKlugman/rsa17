@@ -16,6 +16,7 @@
 #include <rsa17/SetExplorerMode.h>
 
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseArray.h>
 #include <ros/publisher.h>
 #include <ros/service.h>
 #include <tf/transform_listener.h>
@@ -32,7 +33,7 @@ public:
     void shutdown();
 
     // Command callbacks
-    void callback_targetPath(const nav_msgs::PathPtr& targetPose);
+    void callback_targetPoseArray(const geometry_msgs::PoseArrayPtr& targetPoseArray);
     void callback_receivedCommand(const crosbot_msgs::ControlCommandPtr command);
     void callback_explorerFeedback(const rsa17::ExplorerFeedbackConstPtr& feedback);
 
@@ -40,12 +41,12 @@ private:
     // Configuration
     std::string explorer_srv_name;
     std::string explorer_feedback_sub_name;
-    std::string targetPathSub_name;
+    std::string targetPoseArraySub_name;
     std::string robot_frame;
     std::string postrackResetPub_name;
     std::string slamResetPub_name;
     std::string world_frame;
-    nav_msgs::Path markerPath;
+    geometry_msgs::PoseArray markerPoseArray;
     int goalIndex;
 
     // Publishers/subscribers/services
@@ -55,7 +56,7 @@ private:
     ros::Subscriber explorer_feedback_sub;
     ros::Publisher pubPostrackReset;
     ros::Publisher pubGraphSlamReset;
-    ros::Subscriber subTargetPath;
+    ros::Subscriber subTargetPoseArray;
     tf::TransformListener tfListener;
 
     /**

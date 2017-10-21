@@ -2,8 +2,7 @@
 import rospy
 from std_msgs.msg import String
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import Twist, PoseStamped
-from nav_msgs.msg import Path
+from geometry_msgs.msg import Twist, Pose, PoseStamped, PoseArray
 from sensor_msgs.msg import JointState
 from crosbot_msgs.msg import ControlCommand
 import os
@@ -38,13 +37,13 @@ class JoystickNode:
 		self.motors_stopped = False
 		self.flipper_stopped = False
 		self.dying = False
-		self.max_speed = rospy.get_param('~speed', 0.8)
+		self.max_speed = rospy.get_param('~speed', 1.0)
 		self.max_turn = rospy.get_param('~turn', 0.75)
 		self.joint_states = {}
 		self.twistPub = rospy.Publisher("/base/cmd_vel", Twist, queue_size=1)
 		self.armPub = rospy.Publisher("/joint_control", JointState, queue_size=1)
 		self.crosbotCommandPub = rospy.Publisher("/crosbot/commands", ControlCommand, queue_size=1)
-		self.targetPathPub = rospy.Publisher("/targetPath", Path, queue_size=1)
+		self.targetPoseArrayPub = rospy.Publisher("/targetPoseArray", PoseArray, queue_size=1)
 		rospy.Subscriber("joy", Joy, self.callback)
 		rospy.Subscriber("joint_states", JointState, self.callbackJoints)
 		self.telemListener = tf.TransformListener()
@@ -55,12 +54,12 @@ class JoystickNode:
 		self.shoulder_offset = 0
 		self.neck_tilt_offset = 0
 		
-		# Stuff for path
+		# Stuff for PoseArray
 		self.dpadReleased = True
-		self.targetPathLength = 0
-		self.targetPath = Path()
-		self.targetPath.header.stamp = rospy.Time(0)
-		self.targetPath.header.frame_id = "base_link"
+		self.targetPoseArrayLength = 0
+		self.targetPoseArray = PoseArray()
+		self.targetPoseArray.header.stamp = rospy.get_rostime()
+		self.targetPoseArray.header.frame_id = "/icp_test"
 
 		# Speak when initialised
 		espeak.set_voice("en")
@@ -79,46 +78,59 @@ class JoystickNode:
 		self.twistPub.publish(cmd)
 		
 	def setNavGoal(self, forward, right):
-		try:
-			(trans,rot) = self.telemListener.lookupTransform('/icp_test', '/base_link', rospy.Time(0))
-			goal = PoseStamped()
-			goal.header.stamp = rospy.Time(0)
-			goal.header.frame_id = "base_link"
-			if forward == 0 or right == 0:
-				dist = 5
-			else:
-				dist = 5.0/sqrt(2)
-			goal.pose.position.x = forward * dist
-			goal.pose.position.y = right * dist
-			goal.pose.position.z = 0
-			if self.targetPathLength > 1:
-				goal.pose.position.x += self.targetPath.poses[self.targetPathLength - 2].pose.position.x
-				goal.pose.position.y += self.targetPath.poses[self.targetPathLength - 2].pose.position.y
-			if forward == 0:
-				ang = right * pi/2.0
-			elif right == 0:
-				ang = (forward - 1)/2 * pi
-			else:
-				if forward == 1:
-					ang = right * pi/4.0
-				else:
-					ang = right * pi*3.0/4.0				
-			q =  tf.transformations.quaternion_from_euler(0, 0, ang)
-			goal.pose.orientation.x = q[0]
-			goal.pose.orientation.y = q[1]
-			goal.pose.orientation.z = q[2]
-			goal.pose.orientation.w = q[3]
-			goal = self.telemListener.transformPose("icp_test", goal)
-		except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-			print e
-		if len(self.targetPath.poses) < self.targetPathLength:
-			self.targetPath.poses.append(goal)
+		goal = Pose()
+		if forward == 0 or right == 0:
+			dist = 4
 		else:
-			self.targetPath.poses[self.targetPathLength - 1] = goal
-		print "Path is:\n",
-		for ps in self.targetPath.poses:
-			print "\t(%f, %f)\n" % (ps.pose.position.x, ps.pose.position.y),
-		self.targetPathPub.publish(self.targetPath)
+			dist = 4.0/sqrt(2)
+		goal.position.x = forward * dist
+		goal.position.y = right * dist
+		goal.position.z = 0
+		if forward == 0:
+			ang = right * pi/2.0
+		elif right == 0:
+			ang = (forward - 1)/2 * pi
+		else:
+			if forward == 1:
+				ang = right * pi/4.0
+			else:
+				ang = right * pi*3.0/4.0				
+		q =  tf.transformations.quaternion_from_euler(0, 0, ang)
+		goal.orientation.x = q[0]
+		goal.orientation.y = q[1]
+		goal.orientation.z = q[2]
+		goal.orientation.w = q[3]
+		if self.targetPoseArrayLength > 1:
+			goal.position.x += self.targetPoseArray.poses[self.targetPoseArrayLength - 2].position.x
+			goal.position.y += self.targetPoseArray.poses[self.targetPoseArrayLength - 2].position.y
+			
+		if len(self.targetPoseArray.poses) < self.targetPoseArrayLength:
+			self.targetPoseArray.poses.append(goal)
+		else:
+			self.targetPoseArray.poses[self.targetPoseArrayLength - 1] = goal
+
+		print "targetPoseArray is:\n",
+		for p in self.targetPoseArray.poses:
+			print "\t(%f, %f)\n" % (p.position.x, p.position.y),		
+
+		tfPoseArray = PoseArray()
+		tfPoseArray.header = self.targetPoseArray.header
+		
+		for p in self.targetPoseArray.poses:		
+			try:
+				ps = PoseStamped()
+				ps.header.stamp = rospy.Time(0)
+				ps.header.frame_id = "base_link"
+				ps.pose = p
+				(trans,rot) = self.telemListener.lookupTransform('/icp_test', '/base_link', rospy.Time(0))
+				tfGoal = self.telemListener.transformPose("/icp_test", ps)
+				tfPoseArray.poses.append(tfGoal.pose)
+			except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+				print e
+		print "\ntfPoseArray is:\n",
+		for p in tfPoseArray.poses:
+			print "\t(%f, %f)\n" % (p.position.x, p.position.y),	
+		self.targetPoseArrayPub.publish(tfPoseArray)
 
 	def callbackJoints(self, joint_data):
 		for i in range(len(joint_data.name)):
@@ -170,13 +182,13 @@ class JoystickNode:
 			self.motors_stopped = False
 			self.setVelocities(data.axes[AXES_RIGHT_STICK_TB]/2.0, data.axes[AXES_RIGHT_STICK_LR]/2.0)
 			if (data.axes[AXES_DPAD_TB] != 0 or data.axes[AXES_DPAD_LR] != 0):
-				self.sayText("Travelling along path")
+				self.sayText("Travelling along PoseArray")
 				if self.dpadReleased == True:
-					self.targetPathLength += 1
+					self.targetPoseArrayLength += 1
 				self.dpadReleased = False
-				self.setNavGoal(data.axes[AXES_LEFT_STICK_TB], data.axes[AXES_LEFT_STICK_LR])
+				self.setNavGoal(data.axes[AXES_DPAD_TB], data.axes[AXES_DPAD_LR])
 				send_crosbot_command = True
-				crosbot_command = "explore_command_follow_path"
+				crosbot_command = "explore_command_follow_pose_array"
 			else:		
 				self.dpadReleased = True
 				if (data.buttons[BUTTON_RB]):
@@ -200,12 +212,12 @@ class JoystickNode:
 					send_crosbot_command = True
 					crosbot_command = "explore_command_go_to_origin"
 				elif (data.buttons[BUTTON_B]):
-					self.sayText("Clearing path")
-					self.targetPathLength = 0
-					self.targetPath.poses = []
-					self.targetPathPub.publish(self.targetPath)
+					self.sayText("Clearing PoseArray")
+					self.targetPoseArrayLength = 0
+					self.targetPoseArray.poses = []
+					self.targetPoseArrayPub.publish(self.targetPoseArray)
 					send_crosbot_command = True
-					crosbot_command = "explore_command_clear_path"
+					crosbot_command = "explore_command_clear_pose_array"
 
 		# If no drive commands are being sent - then ensure motors are stopped
 		elif (not self.motors_stopped):

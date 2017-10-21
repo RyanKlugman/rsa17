@@ -116,6 +116,7 @@ void BasicExplorerClient::callback_receivedCommand(const crosbot_msgs::ControlCo
     } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_ORIGIN) {
         STATUS_INFO(crosbotStatus, "%s Travelling to origin", LOG_START);
         setAStarPose(crosbot::Pose3D(), false);
+<<<<<<< HEAD
     } else if (command->command == CROSBOT_EXPLORE_COMMAND_FOLLOW_PATH) {
     	if (goalIndex < markerPath.poses.size() && markerPath.poses.size() > 0) {
     		STATUS_INFO(crosbotStatus, "%s Travelling to goal #%d (%f, %f)", LOG_START, goalIndex, markerPath.poses[goalIndex].pose.position.x, markerPath.poses[goalIndex].pose.position.y);
@@ -126,6 +127,26 @@ void BasicExplorerClient::callback_receivedCommand(const crosbot_msgs::ControlCo
     } else if (command->command == CROSBOT_EXPLORE_COMMAND_CLEAR_PATH) {
         STATUS_INFO(crosbotStatus, "%s Clearing path", LOG_START);
         goalIndex = 0;
+=======
+    } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_POINT) {
+        STATUS_INFO(crosbotStatus, "%s Travelling to point: %s", LOG_START, crosbot::Pose3D(markerPose).position.toString().c_str());
+        setAStarPose(markerPose, false);
+        /*crosbot::Pose3D toPose = getCommandPoint(command);
+        if (toPose.isFinite()) {
+            setAStarPose(toPose, false);
+        } else {
+            STATUS_ERROR(crosbotStatus, "%s Go to Point failed - invalid point specified", LOG_START);
+        }*/
+    } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_POSE) {
+        STATUS_INFO(crosbotStatus, "%s Travelling to pose: %s", LOG_START, crosbot::Pose3D(markerPose).position.toString().c_str());
+        setAStarPose(markerPose, false);
+        /*crosbot::Pose3D toPose = getCommandPose(command);
+        if (toPose.isFinite()) {
+            setAStarPose(toPose, true);
+        } else {
+            STATUS_ERROR(crosbotStatus, "%s Go to Pose failed - invalid point specified", LOG_START);
+        }*/
+>>>>>>> aa0d24a916f136d94c253670f099ed0ebc225c05
     }
 }
 
@@ -232,6 +253,7 @@ void BasicExplorerClient::setAStarPose(const geometry_msgs::PoseStamped& targetP
         // Path
         request.path.header.frame_id = targetPose.header.frame_id;
         request.path.header.stamp = targetPose.header.stamp;
+        request.path.poses.push_back(crosbot::Pose3D());
         request.path.poses.push_back(targetPose);
 
         // Send action

@@ -8,5 +8,5 @@
     <include file="$(find emu)/launch/includes/base.launch" />
     <include file="$(find emu)/launch/includes/xtion.launch" />
 
-    <include file="$(find rsa17)/launch/includes/joystick.launch" />
+    <!--include file="$(find rsa17)/launch/includes/joystick.launch" /-->
 </launch>

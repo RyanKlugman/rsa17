@@ -2,7 +2,8 @@
 import rospy
 from std_msgs.msg import String
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import Twist, Pose
+from geometry_msgs.msg import Twist, PoseStamped
+from nav_msgs.msg import Path
 from sensor_msgs.msg import JointState
 from crosbot_msgs.msg import ControlCommand
 import os
@@ -10,6 +11,7 @@ import tf
 
 from time import sleep
 from espeak import espeak
+from math import pi, sqrt
 
 BUTTON_A = 1
 BUTTON_B = 2
@@ -36,13 +38,13 @@ class JoystickNode:
 		self.motors_stopped = False
 		self.flipper_stopped = False
 		self.dying = False
-		self.max_speed = rospy.get_param('~speed', 1.0)
+		self.max_speed = rospy.get_param('~speed', 0.8)
 		self.max_turn = rospy.get_param('~turn', 0.75)
 		self.joint_states = {}
 		self.twistPub = rospy.Publisher("/base/cmd_vel", Twist, queue_size=1)
 		self.armPub = rospy.Publisher("/joint_control", JointState, queue_size=1)
 		self.crosbotCommandPub = rospy.Publisher("/crosbot/commands", ControlCommand, queue_size=1)
-		self.navGoalPub = rospy.Publisher("/move_base_simple/goal", Pose, queue_size=1)
+		self.targetPathPub = rospy.Publisher("/targetPath", Path, queue_size=1)
 		rospy.Subscriber("joy", Joy, self.callback)
 		rospy.Subscriber("joint_states", JointState, self.callbackJoints)
 		self.telemListener = tf.TransformListener()
@@ -52,33 +54,72 @@ class JoystickNode:
 		self.ideal_arm_angle = -0.785
 		self.shoulder_offset = 0
 		self.neck_tilt_offset = 0
+		
+		# Stuff for path
+		self.dpadReleased = True
+		self.targetPathLength = 0
+		self.targetPath = Path()
+		self.targetPath.header.stamp = rospy.Time(0)
+		self.targetPath.header.frame_id = "base_link"
 
 		# Speak when initialised
 		espeak.set_voice("en")
 		self.sayText("Emu ready for teleop control")
 
 	def sayText(self, text):
-		espeak.synth(text)
-		
+		#espeak.synth(text)
+		print text
 
 	def setVelocities(self, forward, turn):
-		goal = Pose()
-        goal.header.stamp = rospy.get_rostime();
-        goal.header.frame_id = "base_link"
-        goal.position.x = turn * 5
-        goal.position.y = forward * 5 
-        goal.position.z = 0
-		self.twistPub.publish(self.telemListener.transformPoint("icp_test", goal))
-
-	def setNavGoal(self, forward, right):
 		cmd = Twist()
 		cmd.linear.x = forward * self.max_speed;
 		cmd.linear.y = cmd.linear.z = 0;
 		cmd.angular.z = turn * self.max_turn;
 		cmd.angular.y = cmd.angular.x = 0;
-		self.navGoalPub.publish(cmd)
-	
-	
+		self.twistPub.publish(cmd)
+		
+	def setNavGoal(self, forward, right):
+		try:
+			(trans,rot) = self.telemListener.lookupTransform('/icp_test', '/base_link', rospy.Time(0))
+			goal = PoseStamped()
+			goal.header.stamp = rospy.Time(0)
+			goal.header.frame_id = "base_link"
+			if forward == 0 or right == 0:
+				dist = 5
+			else:
+				dist = 5.0/sqrt(2)
+			goal.pose.position.x = forward * dist
+			goal.pose.position.y = right * dist
+			goal.pose.position.z = 0
+			if self.targetPathLength > 1:
+				goal.pose.position.x += self.targetPath.poses[self.targetPathLength - 2].pose.position.x
+				goal.pose.position.y += self.targetPath.poses[self.targetPathLength - 2].pose.position.y
+			if forward == 0:
+				ang = right * pi/2.0
+			elif right == 0:
+				ang = (forward - 1)/2 * pi
+			else:
+				if forward == 1:
+					ang = right * pi/4.0
+				else:
+					ang = right * pi*3.0/4.0				
+			q =  tf.transformations.quaternion_from_euler(0, 0, ang)
+			goal.pose.orientation.x = q[0]
+			goal.pose.orientation.y = q[1]
+			goal.pose.orientation.z = q[2]
+			goal.pose.orientation.w = q[3]
+			goal = self.telemListener.transformPose("icp_test", goal)
+		except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+			print e
+		if len(self.targetPath.poses) < self.targetPathLength:
+			self.targetPath.poses.append(goal)
+		else:
+			self.targetPath.poses[self.targetPathLength - 1] = goal
+		print "Path is:\n",
+		for ps in self.targetPath.poses:
+			print "\t(%f, %f)\n" % (ps.pose.position.x, ps.pose.position.y),
+		self.targetPathPub.publish(self.targetPath)
+
 	def callbackJoints(self, joint_data):
 		for i in range(len(joint_data.name)):
 			self.joint_states[joint_data.name[i]] = joint_data.position[i]
@@ -127,39 +168,45 @@ class JoystickNode:
 		crosbot_command = ""
 		if (data.buttons[BUTTON_RT] == 1 and data.buttons[BUTTON_LT] == 0):
 			self.motors_stopped = False
-			self.setVelocities((data.axes[AXES_DPAD_TB] + data.axes[AXES_RIGHT_STICK_TB]) / 2, (data.axes[AXES_DPAD_LR] + data.axes[AXES_RIGHT_STICK_LR]) / 2)
-			
-			if (data.axes[AXES_LEFT_STICK_TB] != 0 or data.axes[AXES_LEFT_STICK_LR] != 0):
-			    self.setNavGoal(data.axes[AXES_LEFT_STICK_TB], data.axes[AXES_LEFT_STICK_LR])
-			
-			if (data.buttons[BUTTON_RB]):
-			    send_crosbot_command = True
-			    self.sayText("Mode set to right wall following")
-			    crosbot_command = "explore_command_rightwall_follow"
-			elif (data.buttons[BUTTON_LB]):
-			    send_crosbot_command = True
-			    self.sayText("Mode set to left wall following")
-			    crosbot_command = "explore_command_leftwall_follow"
-			elif (data.buttons[BUTTON_START]):
-			    self.sayText("Starting wall following")
-			    send_crosbot_command = True
-			    crosbot_command = "command_start"
-			elif (data.buttons[BUTTON_BACK]):
-			    self.sayText("Stopping wall following")
-			    send_crosbot_command = True
-			    crosbot_command = "command_stop"
-			elif (data.buttons[BUTTON_A]):
-			    self.sayText("Travelling to origin")
-			    send_crosbot_command = True
-			    crosbot_command = "explore_command_go_to_origin"
-			elif (data.buttons[BUTTON_X]):
-			    self.sayText("Travelling to point")
-			    send_crosbot_command = True
-			    crosbot_command = "explore_command_go_to_point"
-			elif (data.buttons[BUTTON_B]):
-			    self.sayText("Travelling to pose")
-			    send_crosbot_command = True
-			    crosbot_command = "explore_command_go_to_pose"
+			self.setVelocities(data.axes[AXES_RIGHT_STICK_TB]/2.0, data.axes[AXES_RIGHT_STICK_LR]/2.0)
+			if (data.axes[AXES_DPAD_TB] != 0 or data.axes[AXES_DPAD_LR] != 0):
+				self.sayText("Travelling along path")
+				if self.dpadReleased == True:
+					self.targetPathLength += 1
+				self.dpadReleased = False
+				self.setNavGoal(data.axes[AXES_LEFT_STICK_TB], data.axes[AXES_LEFT_STICK_LR])
+				send_crosbot_command = True
+				crosbot_command = "explore_command_follow_path"
+			else:		
+				self.dpadReleased = True
+				if (data.buttons[BUTTON_RB]):
+					send_crosbot_command = True
+					self.sayText("Mode set to right wall following")
+					crosbot_command = "explore_command_rightwall_follow"
+				elif (data.buttons[BUTTON_LB]):
+					send_crosbot_command = True
+					self.sayText("Mode set to left wall following")
+					crosbot_command = "explore_command_leftwall_follow"
+				elif (data.buttons[BUTTON_START]):
+					self.sayText("Starting exploring")
+					send_crosbot_command = True
+					crosbot_command = "command_start"
+				elif (data.buttons[BUTTON_BACK]):
+					self.sayText("Stopping exploring")
+					send_crosbot_command = True
+					crosbot_command = "command_stop"
+				elif (data.buttons[BUTTON_A]):
+					self.sayText("Travelling to origin")
+					send_crosbot_command = True
+					crosbot_command = "explore_command_go_to_origin"
+				elif (data.buttons[BUTTON_B]):
+					self.sayText("Clearing path")
+					self.targetPathLength = 0
+					self.targetPath.poses = []
+					self.targetPathPub.publish(self.targetPath)
+					send_crosbot_command = True
+					crosbot_command = "explore_command_clear_path"
+
 		# If no drive commands are being sent - then ensure motors are stopped
 		elif (not self.motors_stopped):
 			self.setVelocities(0.0, 0.0)

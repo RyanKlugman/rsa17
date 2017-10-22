@@ -32,6 +32,7 @@
                 orphan: 10
                 windowSize: 1.0
             search:
+                min_travel_distance: 0.5
                 distance: 0.5
             astar:
                 voronoi:

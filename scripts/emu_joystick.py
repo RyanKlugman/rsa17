@@ -80,9 +80,9 @@ class JoystickNode:
 	def setNavGoal(self, forward, right):
 		goal = Pose()
 		if forward == 0 or right == 0:
-			dist = 4
+			dist = 3.5
 		else:
-			dist = 4.0/sqrt(2)
+			dist = 3.5/sqrt(2)
 		goal.position.x = forward * dist
 		goal.position.y = right * dist
 		goal.position.z = 0

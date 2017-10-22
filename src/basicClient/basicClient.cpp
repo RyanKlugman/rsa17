@@ -18,7 +18,7 @@
 #include <iostream>
 
 #define CONTROL_COMMAND_RESET_MAP       "reset_map"
-#define DEFAULT_SERVER_WAIT             0.5
+#define DEFAULT_SERVER_WAIT             1.0
 #define LOG_START                       "BasicExplorerClient ::"
 
 
@@ -117,7 +117,7 @@ void BasicExplorerClient::callback_receivedCommand(const crosbot_msgs::ControlCo
     } else if (command->command == CROSBOT_EXPLORE_COMMAND_GO_TO_ORIGIN) {
         STATUS_INFO(crosbotStatus, "%s Travelling to origin", LOG_START);
         goalIndex = 100;
-        setAStarPose(crosbot::Pose3D(), false);
+        setAStarPose(crosbot::Pose3D(), true);
     } else if (command->command == CROSBOT_EXPLORE_COMMAND_FOLLOW_POSE_ARRAY) {
     	if (goalIndex < markerPoseArray.poses.size() && markerPoseArray.poses.size() > 0) {
     		STATUS_INFO(crosbotStatus, "%s Travelling to goal #%d (%f, %f)", LOG_START, goalIndex, markerPoseArray.poses[goalIndex].position.x, markerPoseArray.poses[goalIndex].position.y);
@@ -125,7 +125,7 @@ void BasicExplorerClient::callback_receivedCommand(const crosbot_msgs::ControlCo
     		ps.header.stamp = ros::Time::now();
     		ps.header.frame_id = "/slam";
     		ps.pose = markerPoseArray.poses[goalIndex];
-    		setAStarPose(ps, false);
+    		setAStarPose(ps, true);
     	} else {
     		STATUS_INFO(crosbotStatus, "%s Already at destination", LOG_START);
     	}
@@ -150,10 +150,10 @@ void BasicExplorerClient::callback_explorerFeedback(const rsa17::ExplorerFeedbac
     rsa17::ExplorerStatus::Status status = rsa17::ExplorerStatus::statusFromInt(feedback->status);
     STATUS_INFO(crosbotStatus, "%s Explorer feedback: %s (%s)", LOG_START, ExplorerStatus::statusToString(status).c_str(), searchStrategy.c_str());
     if (status == rsa17::ExplorerStatus::Status::STATUS_ARRIVED) {
-	 	system("BASH_POST_RC='rossetuplvl3; roslaunch rsa17 explore.launch; exit' gnome-terminal");
-	  	sleep(1);
+	 	system("BASH_POST_RC='roslaunch rsa17 explore.launch; exit' gnome-terminal");
+	  	sleep(5);
 		while (!explorer_srv.exists()) {
-	   		sleep(1);
+	   		sleep(5);
 		}   
     	goalIndex++;
     	if (goalIndex < markerPoseArray.poses.size() && markerPoseArray.poses.size() > 0) {
@@ -162,7 +162,7 @@ void BasicExplorerClient::callback_explorerFeedback(const rsa17::ExplorerFeedbac
     		ps.header.stamp = ros::Time::now();
     		ps.header.frame_id = "/slam";
     		ps.pose = markerPoseArray.poses[goalIndex];
-    		setAStarPose(ps, false);
+    		setAStarPose(ps, true);
     		setExploreMode(rsa17::ExploreMode::MODE_RESUME);
     	} else {
     		STATUS_INFO(crosbotStatus, "%s Reached final goal", LOG_START);
@@ -199,8 +199,8 @@ crosbot::Pose3D BasicExplorerClient::getCommandPose(const crosbot_msgs::ControlC
 void BasicExplorerClient::setExploreMode(int mode) {
     // Ensure action server has started
     while (!explorer_srv.exists()) {
-    	system("BASH_POST_RC='rossetuplvl3; roslaunch rsa17 explore.launch; exit' gnome-terminal");
-    	sleep(1);
+    	system("BASH_POST_RC='roslaunch rsa17 explore.launch; exit' gnome-terminal");
+    	sleep(5);
     }
     STATUS_INFO(crosbotStatus, "%s sending explore mode: %d", LOG_START, mode);
 
@@ -234,8 +234,8 @@ void BasicExplorerClient::setAStarPose(crosbot::Pose3D targetPose, bool targetOr
 void BasicExplorerClient::setAStarPose(const geometry_msgs::PoseStamped& targetPose, bool targetOrientation) {
     // Ensure action server has started
     while (!explorer_srv.exists()) {
-    	system("BASH_POST_RC='rossetuplvl3; roslaunch rsa17 explore.launch; exit' gnome-terminal");
-    	sleep(1);
+    	system("BASH_POST_RC='roslaunch rsa17 explore.launch; exit' gnome-terminal");
+    	sleep(5);
     }
     // Send new action
     int mode = rsa17::MoveMode::MODE_ASTAR;

@@ -17,7 +17,7 @@
 
 #define DEFAULT_BASEFRAME			    "/base_link"
 #define DEFAULT_DRIVE_OPERATING_RATE    100
-#define DEFAULT_LOADPOSE_WAIT4TRANSFORM 0.5
+#define DEFAULT_LOADPOSE_WAIT4TRANSFORM 1.0
 #define LOG_START                       "CrosbotExploreROS ::"
 
 namespace crosbot {
